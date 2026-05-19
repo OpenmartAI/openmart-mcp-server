@@ -242,6 +242,10 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
         "`find_decision_maker` using their domains.",
       ].join("\n"),
       inputSchema: BusinessSearchSchema,
+      annotations: {
+        readOnlyHint: true, // a search — does not change anything
+        openWorldHint: true, // queries the external Openmart directory
+      },
     },
     async (input, extra) => toToolResult(await findBusinesses(input, resolveConfig(extra))),
   );
@@ -275,6 +279,13 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
         "person you already know.",
       ].join("\n"),
       inputSchema: DecisionMakerSchema,
+      annotations: {
+        // Not read-only: it submits enrichment batches and consumes credits.
+        // Not destructive either: it never deletes or overwrites data.
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: true,
+      },
     },
     async (input, extra) => toToolResult(await findDecisionMakers(input, resolveConfig(extra))),
   );
@@ -297,6 +308,10 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
         "status is 'completed'; do not treat a 'processing' result as the full answer.",
       ].join("\n"),
       inputSchema: BatchResultsSchema,
+      annotations: {
+        readOnlyHint: true, // only fetches results of an existing batch
+        openWorldHint: true,
+      },
     },
     async (input, extra) => toToolResult(await getBatchResults(input, resolveConfig(extra))),
   );
