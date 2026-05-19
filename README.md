@@ -317,9 +317,20 @@ claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" node "$(
 
 Then ask Claude, for example: `find 3 coffee shops in San Francisco with valid websites and get their owner emails`.
 
-## Privacy
+## Privacy Policy
 
-This server holds no data of its own. It forwards the search and enrichment
-parameters you pass to the Openmart API, authenticated with your own API key,
-and returns the response. Data handling is governed by the
-[Openmart privacy policy](https://www.openmart.com/privacy-policy).
+- **What is collected** — when you call a tool, this server receives only the
+  parameters you pass it (business categories, locations, company domains,
+  people's names) and your Openmart API key. It does not read anything else
+  from your machine.
+- **How it is used and stored** — the parameters are sent to the Openmart API
+  over HTTPS to fulfil the request. The server keeps no data of its own:
+  nothing is written to disk and nothing is retained between calls. Your API
+  key stays in your local environment / Claude Desktop's secure storage and is
+  sent only as the request's auth header.
+- **Third parties** — requests go solely to the Openmart API
+  (`api.openmart.ai`). No other third party receives your data.
+- **Retention, deletion, and contact** — how Openmart collects, uses, retains,
+  and deletes the data sent to its API, and how to contact Openmart with
+  privacy questions, are covered by the
+  [Openmart privacy policy](https://www.openmart.com/privacy-policy).
