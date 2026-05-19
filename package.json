@@ -19,6 +19,7 @@
     "start:http": "node dist/http.js",
     "test": "tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit",
+    "pack:mcpb": "npm run build && node scripts/build-mcpb.mjs",
     "prepublishOnly": "npm test && npm run typecheck && npm run build"
   },
   "keywords": [
@@ -35,7 +36,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@types/node": "^25.8.0",
+    "esbuild": "^0.28.0",
     "tsx": "^4.22.0",
     "typescript": "^6.0.3"
   }
