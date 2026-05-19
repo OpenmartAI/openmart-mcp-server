@@ -188,8 +188,10 @@ The package exposes two binaries:
 Two GitHub Actions workflows (`.github/workflows/`):
 
 - `ci.yml` — runs tests, typecheck, and build on every push and pull request.
-- `release.yml` — on a `v*` tag, builds the `.mcpb` bundle, creates the GitHub
-  Release with it attached, and publishes the package to npm.
+- `release.yml` — builds the `.mcpb` bundle, creates the GitHub Release with it
+  attached, and publishes to npm. Triggered by a `v*` tag, or run it manually
+  from the Actions tab with a version-bump choice (it then bumps, tags, and
+  releases).
 
 `release.yml` publishes to npm via [trusted publishing](https://docs.npmjs.com/trusted-publishers/)
 (OIDC) — no token. The package's trusted publisher must be configured on
