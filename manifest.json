@@ -1,0 +1,49 @@
+{
+  "manifest_version": "0.3",
+  "name": "openmart-mcp-server",
+  "version": "0.1.0",
+  "description": "Find local businesses and their decision-maker contacts with Openmart.",
+  "author": {
+    "name": "Openmart"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": {
+        "OPENMART_API_KEY": "${user_config.openmart_api_key}"
+      }
+    }
+  },
+  "user_config": {
+    "openmart_api_key": {
+      "type": "string",
+      "title": "Openmart API Key",
+      "description": "Create one at https://app.openmart.com/api-management (requires a paid plan).",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "find_business",
+      "description": "Search local / SMB businesses by location, category, rating, price tier, and more."
+    },
+    {
+      "name": "find_decision_maker",
+      "description": "Find decision-maker contacts (email, phone, LinkedIn) at companies by job title."
+    },
+    {
+      "name": "get_batch_results",
+      "description": "Collect the results of an async find_decision_maker batch."
+    }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

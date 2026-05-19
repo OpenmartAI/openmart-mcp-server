@@ -1,4 +1,6 @@
 node_modules/
 dist/
+mcpb-build/
+*.mcpb
 .env
 .DS_Store

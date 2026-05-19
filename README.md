@@ -72,6 +72,23 @@ npm run build
 claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" node "$(pwd)/dist/index.js"
 ```
 
+## Desktop Extension (.mcpb)
+
+The server can also be packed as an [MCPB desktop extension](https://github.com/modelcontextprotocol/mcpb)
+— a single `.mcpb` file that installs into Claude Desktop in one click and
+prompts the user for their API key, with no terminal or config editing.
+
+Build the bundle:
+
+```bash
+npm run pack:mcpb
+```
+
+This bundles the stdio server into `openmart-mcp-server.mcpb`. To install it,
+open Claude Desktop → Settings → Extensions and add the file, then paste your
+Openmart API key when prompted. This bundle is also the artifact submitted to
+Anthropic's Connectors Directory.
+
 ## Claude Code Plugin
 
 This repo also exposes a Claude Code plugin marketplace. See `PLUGIN.md`.
