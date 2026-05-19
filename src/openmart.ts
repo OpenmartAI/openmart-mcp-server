@@ -9,12 +9,45 @@ export type OpenmartConfig = {
   pollIntervalMs: number;
 };
 
+export type LocationInput = {
+  city?: string;
+  state?: string;
+  country?: string;
+  zip_code?: string[];
+  lat?: number;
+  long?: number;
+  geo_radius?: number;
+};
+
+// Mirrors Openmart's flat /api/v1/search request body. Every filter is a
+// top-level key — there is no nested `filters` object, so wrapping filters
+// in one makes the server silently ignore them.
 export type BusinessSearchInput = {
-  query: string;
-  location?: JsonRecord[];
+  query?: string;
+  tags?: string[];
+  store_name?: string;
+  location?: LocationInput[];
+  min_locations?: number;
+  max_locations?: number;
+  ownership_type?: "INDEPENDENT" | "FAMILY" | "FRANCHISE" | "CHAIN";
+  min_price_tier?: number;
+  max_price_tier?: number;
+  min_total_reviews?: number;
+  max_total_reviews?: number;
+  min_overall_rating?: number;
+  max_overall_rating?: number;
+  has_website?: boolean;
+  has_valid_website?: boolean;
+  has_contact_info?: boolean;
+  include_keywords?: string[];
+  exclude_keywords?: string[];
+  exclude_root_domains?: string[];
+  open_date_after?: string;
+  open_date_before?: string;
+  info_updated_after?: string;
+  info_updated_before?: string;
   limit?: number;
-  filters?: JsonRecord;
-  cursor?: unknown;
+  cursor?: unknown[];
 };
 
 export type CompanyInput = {
@@ -87,8 +120,12 @@ export async function findBusinesses(
   input: BusinessSearchInput,
   config: OpenmartConfig,
 ): Promise<JsonRecord> {
-  const response = await openmartRequest<JsonRecord>(config, "POST", "/api/v1/search", input);
+  // estimate_total flips the response to {data, total_count} so callers can
+  // gauge how broad the query is before paging further.
+  const body = { ...input, estimate_total: true };
+  const response = await openmartRequest<JsonRecord>(config, "POST", "/api/v1/search", body);
   const businesses = extractArray(response, [
+    "data",
     "businesses",
     "results",
     "items",
@@ -97,19 +134,22 @@ export async function findBusinesses(
     "data.results",
     "data.items",
   ]);
+  const total_count = extractTotalCount(response);
+  const next_cursor = lastCursor(businesses);
 
   if (businesses.length === 0) {
     return {
       businesses: [],
-      next_cursor: extractNextCursor(response),
-      message: "No businesses found. Try a broader category or location.",
-      raw: response,
+      total_count,
+      next_cursor,
+      message: "No businesses found. Broaden the category/location or drop some filters.",
     };
   }
 
   return {
     businesses: businesses.map(normalizeBusiness),
-    next_cursor: extractNextCursor(response),
+    total_count,
+    next_cursor,
   };
 }
 
@@ -363,24 +403,31 @@ function normalizeBusiness(value: unknown): JsonRecord {
     google_rating: content.google_rating ?? content.rating,
     google_reviews_count: content.google_reviews_count ?? content.reviews_count,
     tags: content.tags,
+    business_categories: content.business_categories,
     num_stores: content.num_stores ?? content.num_locations,
+    ownership_type: content.ownership_type,
+    price_tier: content.price_tier,
+    open_date: content.open_date,
+    latitude: content.latitude,
+    longitude: content.longitude,
     match_score: value.match_score,
     match_highlights: value.match_highlights,
   });
 }
 
-function extractNextCursor(response: unknown): unknown {
-  const explicit = getNested(response, "next_cursor") ?? getNested(response, "data.next_cursor");
-  if (explicit !== undefined) {
-    return explicit;
-  }
+function extractTotalCount(response: unknown): number | null {
+  const value = getNested(response, "total_count") ?? getNested(response, "data.total_count");
+  return typeof value === "number" ? value : null;
+}
 
-  if (Array.isArray(response) && response.length > 0) {
-    const last = response[response.length - 1];
-    return isRecord(last) ? last.cursor ?? null : null;
+// Openmart paginates by cursor: each record carries a [score, store_id]
+// cursor, and the next page is requested with the last record's cursor.
+function lastCursor(businesses: unknown[]): unknown {
+  if (businesses.length === 0) {
+    return null;
   }
-
-  return null;
+  const last = businesses[businesses.length - 1];
+  return isRecord(last) ? last.cursor ?? null : null;
 }
 
 function isBatchReady(status: JsonRecord): boolean {

@@ -17,25 +17,98 @@ type HandlerExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 export type OpenmartConfigResolver = (extra: HandlerExtra) => OpenmartConfig;
 
 const LocationSchema = z.object({
-  country: z.string().describe("Country name or code, for example USA or US."),
-  state: z.string().optional().describe("State or region, for example CA."),
-  city: z.string().optional().describe("City, for example San Francisco."),
-}).passthrough();
+  city: z.string().optional().describe("City name, e.g. 'San Francisco'."),
+  state: z.string().optional().describe("State or region, e.g. 'CA' or 'California'."),
+  country: z.string().optional().describe("Country code or name, e.g. 'US'. Defaults to US."),
+  zip_code: z.array(z.string()).optional().describe("ZIP / postal codes to match."),
+  lat: z.number().optional().describe("Latitude (WGS84). Pair with long + geo_radius for a radius search."),
+  long: z.number().optional().describe("Longitude (WGS84). Pair with lat + geo_radius for a radius search."),
+  geo_radius: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe("Search radius in meters around lat/long. Defaults to 50000 (50km)."),
+});
 
+// All filters are flat, top-level keys — the Openmart /api/v1/search endpoint
+// has no nested `filters` object, so anything wrapped in one is silently
+// ignored by the server.
 const BusinessSearchSchema = z.object({
-  query: z.string().min(1).describe("Business category or keyword, for example hair salons."),
-  location: z.array(LocationSchema).optional(),
-  limit: z.number().int().positive().max(1000).default(50),
-  filters: z.object({
-    has_website: z.boolean().optional(),
-    has_valid_website: z.boolean().optional(),
-    has_contact_info: z.boolean().optional(),
-    max_locations: z.number().int().positive().optional(),
-    min_total_reviews: z.number().int().nonnegative().optional(),
-    min_overall_rating: z.number().min(0).max(5).optional(),
-    open_date_after: z.string().optional(),
-  }).passthrough().optional(),
-  cursor: z.unknown().optional(),
+  query: z
+    .string()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Business category or keyword, e.g. 'hair salon'. Ignored when tags is set."),
+  tags: z
+    .array(z.string())
+    .max(100)
+    .optional()
+    .describe("Directory category tags. When non-empty, takes precedence over query and store_name."),
+  store_name: z.string().optional().describe("Business or chain name, e.g. 'Starbucks'."),
+  location: z
+    .array(LocationSchema)
+    .optional()
+    .describe("One or more locations to search within. Pass at least one for local results."),
+  min_locations: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Minimum number of locations (use >=2 for chains/franchises)."),
+  max_locations: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .describe("Maximum number of locations (use 1 for single-location businesses)."),
+  ownership_type: z
+    .enum(["INDEPENDENT", "FAMILY", "FRANCHISE", "CHAIN"])
+    .optional()
+    .describe("Ownership type filter."),
+  min_price_tier: z.number().int().min(1).max(4).optional().describe("Minimum price tier (1=$ to 4=$$$$)."),
+  max_price_tier: z.number().int().min(1).max(4).optional().describe("Maximum price tier (1=$ to 4=$$$$)."),
+  min_total_reviews: z.number().int().nonnegative().optional().describe("Minimum Google review count."),
+  max_total_reviews: z.number().int().nonnegative().optional().describe("Maximum Google review count."),
+  min_overall_rating: z.number().min(0).max(5).optional().describe("Minimum Google rating (0-5)."),
+  max_overall_rating: z.number().min(0).max(5).optional().describe("Maximum Google rating (0-5)."),
+  has_website: z.boolean().optional().describe("Only return businesses that have a website."),
+  has_valid_website: z
+    .boolean()
+    .optional()
+    .describe("Only return businesses with a validated, reachable website."),
+  has_contact_info: z.boolean().optional().describe("Only return businesses that have contact info."),
+  include_keywords: z
+    .array(z.string())
+    .max(64)
+    .optional()
+    .describe("Soft-rank: boost businesses whose description mentions these words."),
+  exclude_keywords: z
+    .array(z.string())
+    .max(64)
+    .optional()
+    .describe("Hard filter: drop businesses whose description mentions these words."),
+  exclude_root_domains: z
+    .array(z.string())
+    .max(10000)
+    .optional()
+    .describe("Exclude businesses on these root domains (e.g. to dedupe against existing leads)."),
+  open_date_after: z.string().optional().describe("Only businesses opened on/after this date (YYYY-MM-DD)."),
+  open_date_before: z.string().optional().describe("Only businesses opened on/before this date (YYYY-MM-DD)."),
+  info_updated_after: z
+    .string()
+    .optional()
+    .describe("Only records refreshed on/after this date (YYYY-MM-DD)."),
+  info_updated_before: z
+    .string()
+    .optional()
+    .describe("Only records refreshed on/before this date (YYYY-MM-DD)."),
+  limit: z.number().int().positive().max(1000).default(50).describe("Max records per page (1-1000)."),
+  cursor: z
+    .array(z.unknown())
+    .optional()
+    .describe("Pagination cursor — pass the next_cursor returned by the previous call to get the next page."),
 });
 
 const CompanySchema = z.object({
