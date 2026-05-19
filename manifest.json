@@ -6,6 +6,15 @@
   "author": {
     "name": "Openmart"
   },
+  "homepage": "https://www.openmart.com",
+  "documentation": "https://github.com/OpenmartAI/openmart-mcp-server#readme",
+  "support": "https://github.com/OpenmartAI/openmart-mcp-server/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenmartAI/openmart-mcp-server"
+  },
+  "icon": "icon.png",
+  "privacy_policies": ["https://www.openmart.com/privacy-policy"],
   "server": {
     "type": "node",
     "entry_point": "server/index.mjs",

@@ -26,6 +26,7 @@ await build({
 });
 
 copyFileSync("manifest.json", `${STAGE}/manifest.json`);
+copyFileSync("icon.png", `${STAGE}/icon.png`);
 
 execFileSync("npx", ["mcpb", "pack", STAGE, OUTPUT], { stdio: "inherit" });
 

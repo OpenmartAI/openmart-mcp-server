@@ -1,0 +1,46 @@
+name: Release
+
+# Cut a release by pushing a version tag, e.g.:
+#   npm version patch && git push --follow-tags
+#
+# This builds the .mcpb desktop-extension bundle, creates the GitHub Release
+# with the bundle attached, and publishes the package to npm.
+#
+# Requires an NPM_TOKEN repository secret (an npm automation token) for the
+# publish step.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release and upload assets
+      id-token: write # npm publish provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - name: Build the .mcpb bundle
+        run: npm run pack:mcpb
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mv openmart-mcp-server.mcpb "openmart-mcp-server-${version}.mcpb"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "openmart-mcp-server-${version}.mcpb"
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
