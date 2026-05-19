@@ -1,31 +1,58 @@
 name: Release
 
-# Cut a release by pushing a version tag, e.g.:
-#   npm version patch && git push --follow-tags
+# Two ways to cut a release:
+#   - push a version tag:  npm version patch && git push --follow-tags
+#   - run this workflow manually from the Actions tab and pick a bump type;
+#     it bumps package.json/manifest.json, commits, tags, and releases.
 #
-# This builds the .mcpb desktop-extension bundle, creates the GitHub Release
-# with the bundle attached, and publishes the package to npm.
-#
-# Requires an NPM_TOKEN repository secret (an npm automation token) for the
-# publish step.
+# npm publishing uses trusted publishing (OIDC) — no token. The package's
+# trusted publisher must be configured on npmjs.com to allow this repository
+# and this workflow file (release.yml).
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # create the GitHub Release and upload assets
-      id-token: write # npm publish provenance
+      contents: write # create the GitHub Release, push the version tag
+      id-token: write # OIDC token for npm trusted publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
           cache: npm
+      # npm trusted publishing (OIDC) requires npm >= 11.5.1.
+      - run: npm install -g npm@latest
       - run: npm ci
+
+      # Manual run: bump the version, commit, and create + push the tag.
+      # (On a tag push the tag already exists, so this is skipped.)
+      - name: Bump version and tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "${{ inputs.bump }}" -m "chore(release): v%s"
+          git push --follow-tags
+
+      # Version + tag are taken from package.json — consistent for both triggers.
+      - name: Resolve version
+        id: v
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
       - run: npm test
       - run: npm run typecheck
       - name: Build the .mcpb bundle
@@ -34,13 +61,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          mv openmart-mcp-server.mcpb "openmart-mcp-server-${version}.mcpb"
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          mv openmart-mcp-server.mcpb "openmart-mcp-server-${{ steps.v.outputs.version }}.mcpb"
+          gh release create "${{ steps.v.outputs.tag }}" \
+            --title "${{ steps.v.outputs.tag }}" \
             --generate-notes \
-            "openmart-mcp-server-${version}.mcpb"
+            "openmart-mcp-server-${{ steps.v.outputs.version }}.mcpb"
+      # Publishes via OIDC trusted publishing — no NODE_AUTH_TOKEN. npm also
+      # records provenance automatically when published this way.
       - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
