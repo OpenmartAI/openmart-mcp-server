@@ -27,8 +27,16 @@
     "mcp",
     "openmart"
   ],
-  "author": "",
+  "author": "Openmart",
   "license": "MIT",
+  "homepage": "https://github.com/OpenmartAI/openmart-mcp-server#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenmartAI/openmart-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OpenmartAI/openmart-mcp-server/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
