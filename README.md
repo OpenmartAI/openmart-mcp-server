@@ -185,16 +185,14 @@ The package exposes two binaries:
 
 ## CI Workflows
 
-Two workflow files live under `docs/github-workflows/`:
+Two GitHub Actions workflows (`.github/workflows/`):
 
 - `ci.yml` — runs tests, typecheck, and build on every push and pull request.
 - `release.yml` — on a `v*` tag, builds the `.mcpb` bundle, creates the GitHub
   Release with it attached, and publishes the package to npm.
 
-To activate them, move both into `.github/workflows/` and push from a
-credential that holds the GitHub `workflow` OAuth scope
-(`gh auth refresh -s workflow`). `release.yml` also needs an `NPM_TOKEN`
-repository secret (an npm automation token) for the publish step.
+`release.yml` needs an `NPM_TOKEN` repository secret (an npm automation token)
+for the publish step.
 
 ## Shared Project Config
 
