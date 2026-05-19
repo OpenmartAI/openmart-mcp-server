@@ -153,6 +153,10 @@ export async function findBusinesses(
   };
 }
 
+// Openmart rejects a batch with more than 100 tasks, so large company
+// lists are split across several batches.
+const BATCH_TASK_LIMIT = 100;
+
 export async function findDecisionMakers(
   input: DecisionMakerInput,
   config: OpenmartConfig,
@@ -173,54 +177,77 @@ export async function findDecisionMakers(
   const timeoutMs = (input.timeout_seconds ?? config.timeoutMs / 1000) * 1000;
   const pollIntervalMs = input.poll_interval_ms ?? config.pollIntervalMs;
 
-  const submitPayload = companies.map((company) => ({
-    ...company,
-    title,
-    max_k,
-    info_access,
-  }));
-  const submit = await openmartRequest<JsonRecord>(
-    config,
-    "POST",
-    "/api/v1/task/batch/find_people",
-    submitPayload,
-  );
-  const batchId = findString(submit, ["batch_id", "id", "data.batch_id", "data.id"]);
-  if (!batchId) {
-    throw new OpenmartApiError("Openmart did not return a batch_id for find_people.", undefined, submit);
+  // Submit one batch per <=100-task chunk.
+  const batchIds: string[] = [];
+  for (const group of chunk(companies, BATCH_TASK_LIMIT)) {
+    const payload = group.map((company) => ({ ...company, title, max_k, info_access }));
+    const submit = await openmartRequest<JsonRecord>(
+      config,
+      "POST",
+      "/api/v1/task/batch/find_people",
+      payload,
+    );
+    const batchId = findString(submit, ["batch_id", "id", "data.batch_id", "data.id"]);
+    if (!batchId) {
+      throw new OpenmartApiError("Openmart did not return a batch_id for find_people.", undefined, submit);
+    }
+    batchIds.push(batchId);
   }
 
+  // Poll every batch until ready or the deadline passes. A failed status
+  // check is treated as "not ready yet" so a single transient blip cannot
+  // kill the whole job.
   const deadline = Date.now() + timeoutMs;
-  let latestStatus: JsonRecord = {};
-
-  while (Date.now() < deadline) {
-    latestStatus = await openmartRequest<JsonRecord>(
-      config,
-      "GET",
-      `/api/v1/task/batch/${encodeURIComponent(batchId)}/status`,
-    );
-
-    if (isBatchReady(latestStatus)) {
-      const taskIds = await fetchCompletedTaskIds(config, batchId);
-      const contacts = await fetchTaskContacts(config, taskIds);
-      return {
-        status: "completed",
-        batch_id: batchId,
-        contacts,
-        skipped_rows,
-      };
+  const pending = new Set(batchIds);
+  while (pending.size > 0 && Date.now() < deadline) {
+    for (const batchId of [...pending]) {
+      const status = await safeBatchStatus(config, batchId);
+      if (status && isBatchReady(status)) {
+        pending.delete(batchId);
+      }
     }
+    if (pending.size > 0) {
+      await delay(pollIntervalMs);
+    }
+  }
 
-    await delay(pollIntervalMs);
+  // Collect contacts from every batch that finished.
+  const readyBatchIds = batchIds.filter((id) => !pending.has(id));
+  const contactGroups = await Promise.all(
+    readyBatchIds.map(async (batchId) => {
+      const taskIds = await fetchCompletedTaskIds(config, batchId);
+      return fetchTaskContacts(config, taskIds);
+    }),
+  );
+  const contacts = contactGroups.flat();
+
+  if (pending.size > 0) {
+    return {
+      status: "processing",
+      batch_ids: batchIds,
+      pending_batch_ids: [...pending],
+      contacts,
+      skipped_rows,
+      message:
+        `Decision-maker enrichment finished ${readyBatchIds.length} of ${batchIds.length} ` +
+        `batch(es); ${pending.size} still running. Retry later to collect the rest.`,
+    };
   }
 
   return {
-    status: "processing",
-    batch_id: batchId,
-    batch_status: latestStatus,
+    status: "completed",
+    batch_ids: batchIds,
+    contacts,
     skipped_rows,
-    message: "Decision-maker enrichment is still running.",
   };
+}
+
+export function chunk<T>(items: T[], size: number): T[][] {
+  const groups: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    groups.push(items.slice(i, i + size));
+  }
+  return groups;
 }
 
 export function buildFindPeopleCompanies(input: DecisionMakerInput): {
@@ -288,6 +315,21 @@ export function normalizeDomain(domain?: string): string | undefined {
   return cleaned || undefined;
 }
 
+async function safeBatchStatus(
+  config: OpenmartConfig,
+  batchId: string,
+): Promise<JsonRecord | null> {
+  try {
+    return await openmartRequest<JsonRecord>(
+      config,
+      "GET",
+      `/api/v1/task/batch/${encodeURIComponent(batchId)}/status`,
+    );
+  } catch {
+    return null; // transient failure — keep polling
+  }
+}
+
 async function fetchCompletedTaskIds(config: OpenmartConfig, batchId: string): Promise<string[]> {
   const response = await openmartRequest<JsonRecord>(
     config,
@@ -333,6 +375,13 @@ async function fetchTaskContacts(config: OpenmartConfig, taskIds: string[]): Pro
   });
 }
 
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_REQUEST_RETRIES = 3;
+
+function backoffMs(attempt: number): number {
+  return 1_000 * 2 ** attempt; // 1s, 2s, 4s
+}
+
 async function openmartRequest<T>(
   config: OpenmartConfig,
   method: "GET" | "POST",
@@ -340,21 +389,45 @@ async function openmartRequest<T>(
   body?: unknown,
 ): Promise<T> {
   const url = new URL(path, ensureTrailingSlash(config.baseUrl));
-  const response = await fetch(url, {
+  const init: RequestInit = {
     method,
     headers: {
       "Content-Type": "application/json",
       "X-API-Key": config.apiKey,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const responseBody = await parseBody(response);
+  };
 
-  if (!response.ok) {
-    throw mapApiError(response.status, responseBody);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(url, init);
+
+      // Retry transient server / rate-limit statuses with exponential back-off.
+      if (RETRY_STATUSES.has(response.status) && attempt < MAX_REQUEST_RETRIES) {
+        await response.body?.cancel();
+        await delay(backoffMs(attempt));
+        continue;
+      }
+
+      const responseBody = await parseBody(response);
+      if (!response.ok) {
+        throw mapApiError(response.status, responseBody);
+      }
+      return responseBody as T;
+    } catch (error) {
+      // API errors are final; network failures (fetch threw) get retried.
+      if (error instanceof OpenmartApiError) {
+        throw error;
+      }
+      if (attempt < MAX_REQUEST_RETRIES) {
+        await delay(backoffMs(attempt));
+        continue;
+      }
+      throw new OpenmartApiError(
+        `Openmart request to ${path} failed after ${MAX_REQUEST_RETRIES + 1} attempts: ${String(error)}`,
+      );
+    }
   }
-
-  return responseBody as T;
 }
 
 async function parseBody(response: Response): Promise<unknown> {

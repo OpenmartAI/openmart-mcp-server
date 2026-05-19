@@ -129,7 +129,13 @@ const DecisionMakerSchema = z.object({
   companies: z.array(CompanySchema).optional(),
   businesses: z.array(CompanySchema).optional(),
   title: z.string().default("Owner").describe("Target role, for example Owner, Founder, Manager."),
-  max_k: z.number().int().positive().max(10).default(3),
+  max_k: z
+    .number()
+    .int()
+    .min(1)
+    .max(8)
+    .default(3)
+    .describe("Max contacts to return per company (1-8)."),
   info_access: z.array(z.enum(["EMAIL", "PHONE"])).default(["EMAIL", "PHONE"]),
   timeout_seconds: z.number().int().positive().max(600).default(120),
   poll_interval_ms: z.number().int().positive().max(30_000).default(2_000),
