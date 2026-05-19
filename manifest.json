@@ -4,7 +4,8 @@
   "version": "0.1.4",
   "description": "Find local businesses and their decision-maker contacts with Openmart.",
   "author": {
-    "name": "Openmart"
+    "name": "Openmart",
+    "url": "https://github.com/OpenmartAI"
   },
   "homepage": "https://www.openmart.com",
   "documentation": "https://github.com/OpenmartAI/openmart-mcp-server#readme",
