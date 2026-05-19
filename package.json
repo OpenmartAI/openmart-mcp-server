@@ -20,6 +20,7 @@
     "test": "tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "pack:mcpb": "npm run build && node scripts/build-mcpb.mjs",
+    "version": "node scripts/sync-manifest-version.mjs && git add manifest.json",
     "prepublishOnly": "npm test && npm run typecheck && npm run build"
   },
   "keywords": [
