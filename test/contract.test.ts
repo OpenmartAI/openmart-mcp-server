@@ -76,23 +76,35 @@ test("find_business sends a flat request body with estimate_total", async () => 
   assert.equal(body.query, "coffee");
 });
 
-test("find_business parses {data,total_count} and derives next_cursor", async () => {
-  const fixture = {
-    data: [
-      { id: "u1", content: { business_name: "Cafe A", root_domain: "a.com", city: "SF" }, cursor: [1, "u1"] },
-      { id: "u2", content: { business_name: "Cafe B", root_domain: "b.com", city: "SF" }, cursor: [2.5, "u2"] },
-    ],
-    total_count: 750,
-  };
-  const { fake } = stubFetch(() => json(fixture));
-  const result = await withFetch(fake, () => findBusinesses({ query: "coffee" }, cfg));
+const TWO_BUSINESSES = {
+  data: [
+    { id: "u1", content: { business_name: "Cafe A", root_domain: "a.com", city: "SF" }, cursor: [1, "u1"] },
+    { id: "u2", content: { business_name: "Cafe B", root_domain: "b.com", city: "SF" }, cursor: [2.5, "u2"] },
+  ],
+  total_count: 750,
+};
+
+test("find_business parses {data,total_count}; a full page has more pages", async () => {
+  const { fake } = stubFetch(() => json(TWO_BUSINESSES));
+  // limit 2 + 2 rows back = a full page, so there is probably more.
+  const result = await withFetch(fake, () => findBusinesses({ query: "coffee", limit: 2 }, cfg));
 
   assert.equal(result.total_count, 750);
+  assert.equal(result.has_more, true);
   assert.deepEqual(result.next_cursor, [2.5, "u2"]);
   const businesses = result.businesses as Array<Record<string, unknown>>;
   assert.equal(businesses.length, 2);
   assert.equal(businesses[0].business_name, "Cafe A");
   assert.equal(businesses[0].root_domain, "a.com");
+});
+
+test("find_business marks a short page as the last one", async () => {
+  const { fake } = stubFetch(() => json(TWO_BUSINESSES));
+  // 2 rows back against the default limit of 50 = a short page = the end.
+  const result = await withFetch(fake, () => findBusinesses({ query: "coffee" }, cfg));
+
+  assert.equal(result.has_more, false);
+  assert.equal(result.next_cursor, null);
 });
 
 test("find_business reports an empty result without throwing", async () => {
@@ -101,6 +113,7 @@ test("find_business reports an empty result without throwing", async () => {
 
   assert.deepEqual(result.businesses, []);
   assert.equal(result.total_count, 0);
+  assert.equal(result.has_more, false);
   assert.equal(result.next_cursor, null);
   assert.match(String(result.message), /No businesses/);
 });

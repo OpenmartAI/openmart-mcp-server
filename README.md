@@ -192,8 +192,11 @@ CORS_ORIGIN=*
 ```
 
 Search target: pass `query`, `tags`, or `store_name` — `tags` wins over
-`store_name`, which wins over `query`. The response carries `businesses`,
-`total_count`, and `next_cursor` (pass it back as `cursor` to page further).
+`store_name`, which wins over `query`.
+
+The response carries `businesses`, `total_count` (full match count),
+`has_more`, and `next_cursor`. To page, repeat the call with `cursor` set to
+the previous `next_cursor` while `has_more` is true; stop when it is false.
 
 `find_decision_maker` accepts either `companies` or the `businesses` returned by `find_business`:
 

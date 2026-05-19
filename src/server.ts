@@ -105,11 +105,19 @@ const BusinessSearchSchema = z.object({
     .string()
     .optional()
     .describe("Only records refreshed on/before this date (YYYY-MM-DD)."),
-  limit: z.number().int().positive().max(1000).default(50).describe("Max records per page (1-1000)."),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(1000)
+    .default(50)
+    .describe("Records per page, 1-1000 (default 50). One call fetches one page of this size."),
   cursor: z
     .array(z.unknown())
     .optional()
-    .describe("Pagination cursor — pass the next_cursor returned by the previous call to get the next page."),
+    .describe(
+      "Pagination cursor. Omit for the first page; to fetch the next page pass the `next_cursor` from the previous response.",
+    ),
 });
 
 const CompanySchema = z
@@ -221,9 +229,14 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
         "location in it (location goes in `location`). Pass at least one `location` for local results.",
         "",
         "Returns each business with name, address, phone, website, root domain, Google rating and",
-        "review count, tags/categories, location count, ownership type, and price tier. Also returns",
-        "`total_count` (how many businesses match overall) and `next_cursor` — to page further, call",
-        "again with `cursor` set to that value.",
+        "review count, tags/categories, location count, ownership type, and price tier.",
+        "",
+        "Pagination: every response also carries `total_count` (how many businesses match the filters",
+        "overall), `has_more`, and `next_cursor`. For a single page, call once. To collect more, repeat",
+        "the call with `cursor` set to the previous response's `next_cursor`, and keep going while",
+        "`has_more` is true — stop as soon as `has_more` is false (then `next_cursor` is null). Check",
+        "`total_count` first: it tells you the full match size up front, so you can decide whether to",
+        "page at all and how many pages it will take (total_count / limit).",
         "",
         "To get decision-maker contacts (email/phone) for the businesses found, follow up with",
         "`find_decision_maker` using their domains.",
