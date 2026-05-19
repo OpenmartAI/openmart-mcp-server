@@ -227,10 +227,39 @@ Rows without a domain are skipped and returned in `skipped_rows` with `reason: "
 
 It returns the contacts collected so far; if some batches are still running it returns status `processing` again with the remaining `pending_batch_ids` — wait a few seconds and call it again with those.
 
-## Verify
+## Testing
+
+### Automated
 
 ```bash
 npm test
 npm run typecheck
 npm run build
 ```
+
+`npm test` runs three layers:
+
+- **unit** (`test/openmart.test.ts`) — pure helpers (domain parsing, list chunking).
+- **contract** (`test/contract.test.ts`) — `openmart.ts` against canned responses
+  shaped like the real Openmart API: flat search body, async batch flow, retries.
+- **end-to-end** (`test/e2e.test.ts`) — spawns the real stdio server, connects a
+  real MCP client, and drives `tools/list` plus every tool over JSON-RPC. A local
+  HTTP server stands in for `api.openmart.ai`, so it needs no API key and no credits.
+
+### Interactive (MCP Inspector)
+
+Drive the server against the live Openmart API with the official inspector UI:
+
+```bash
+npm run build
+OPENMART_API_KEY="YOUR_OPENMART_API_KEY" npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+### In Claude Code
+
+```bash
+npm run build
+claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" node "$(pwd)/dist/index.js"
+```
+
+Then ask Claude, for example: `find 3 coffee shops in San Francisco with valid websites and get their owner emails`.
