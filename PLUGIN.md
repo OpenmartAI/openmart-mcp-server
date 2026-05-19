@@ -7,7 +7,7 @@ This repo is also a Claude Code plugin marketplace.
 After this repo is public or the user has access to the private repo, add the marketplace in Claude Code:
 
 ```text
-/plugin marketplace add kathrynwu/openmart-mcp-server
+/plugin marketplace add OpenmartAI/openmart-mcp-server
 ```
 
 Then install:

@@ -9,8 +9,16 @@ It supports two transports:
 
 ## Tools
 
-- `find_business`: wraps `POST /api/v1/search`
-- `find_decision_maker`: wraps `POST /api/v1/task/batch/find_people`, polls batch status, fetches completed task IDs, then fetches task results
+Two tools, for two jobs — finding companies and finding people.
+
+- `find_business` — find companies. Wraps `POST /api/v1/search`. Every filter
+  (rating, reviews, location count, ownership type, price tier, keywords,
+  dates, website flags) is a flat top-level parameter. Returns each matching
+  business plus `total_count` and a `next_cursor` for pagination.
+- `find_decision_maker` — find people. Wraps `POST /api/v1/task/batch/find_people`:
+  submits one or more batches (company lists longer than 100 are split
+  automatically), polls each batch, then fetches the completed task results.
+  Transient HTTP failures are retried with exponential back-off.
 
 ## Local Stdio Usage
 
@@ -42,7 +50,7 @@ This repo also exposes a Claude Code plugin marketplace. See `PLUGIN.md`.
 Add the marketplace:
 
 ```text
-/plugin marketplace add kathrynwu/openmart-mcp-server
+/plugin marketplace add OpenmartAI/openmart-mcp-server
 ```
 
 Install the plugin:
@@ -129,6 +137,13 @@ The package exposes two binaries:
 - `openmart-mcp-server`: stdio server
 - `openmart-mcp-http`: HTTP server
 
+## CI Workflows
+
+The CI, npm-publish, and Render-deploy workflow files are parked under
+`docs/github-workflows/`. To activate them as real GitHub Actions, move them
+into `.github/workflows/` and push from a credential that holds the GitHub
+`workflow` OAuth scope (`gh auth refresh -s workflow`).
+
 ## Shared Project Config
 
 Use `.mcp.example.json` as a template if you want to commit a team-shared Claude Code project configuration:
@@ -155,24 +170,27 @@ CORS_ORIGIN=*
 
 ## Tool Inputs
 
-`find_business`:
+`find_business` — all filters are flat, top-level keys. There is no nested
+`filters` object; anything wrapped in one is ignored by `/api/v1/search`.
 
 ```json
 {
-  "query": "hair salons",
-  "location": [{ "country": "USA", "state": "CA", "city": "San Francisco" }],
+  "query": "hair salon",
+  "location": [{ "country": "US", "state": "CA", "city": "San Francisco" }],
   "limit": 50,
-  "filters": {
-    "has_website": true,
-    "has_valid_website": true,
-    "has_contact_info": true,
-    "max_locations": 5,
-    "min_total_reviews": 20,
-    "min_overall_rating": 4.0,
-    "open_date_after": "2025-01-01"
-  }
+  "has_valid_website": true,
+  "has_contact_info": true,
+  "max_locations": 5,
+  "min_total_reviews": 20,
+  "min_overall_rating": 4.0,
+  "ownership_type": "INDEPENDENT",
+  "open_date_after": "2025-01-01"
 }
 ```
+
+Search target: pass `query`, `tags`, or `store_name` — `tags` wins over
+`store_name`, which wins over `query`. The response carries `businesses`,
+`total_count`, and `next_cursor` (pass it back as `cursor` to page further).
 
 `find_decision_maker` accepts either `companies` or the `businesses` returned by `find_business`:
 

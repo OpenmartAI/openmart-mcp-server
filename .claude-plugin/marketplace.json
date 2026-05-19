@@ -13,8 +13,8 @@
       "author": {
         "name": "Openmart"
       },
-      "homepage": "https://github.com/kathrynwu/openmart-mcp-server",
-      "repository": "https://github.com/kathrynwu/openmart-mcp-server",
+      "homepage": "https://github.com/OpenmartAI/openmart-mcp-server",
+      "repository": "https://github.com/OpenmartAI/openmart-mcp-server",
       "license": "MIT",
       "category": "External integrations",
       "tags": ["mcp", "sales", "lead-generation", "openmart"]

@@ -5,7 +5,7 @@
 The code is ready and pushed to:
 
 ```text
-https://github.com/kathrynwu/openmart-mcp-server
+https://github.com/OpenmartAI/openmart-mcp-server
 ```
 
 Local verification passes:
@@ -16,6 +16,10 @@ npm run typecheck
 npm run build
 npm pack --dry-run
 ```
+
+> The `Publish npm` and `Deploy Render` GitHub Actions referenced below are
+> parked under `docs/github-workflows/`. Move them into `.github/workflows/`
+> (and push with the `workflow` OAuth scope) before the manual-run steps work.
 
 ## Publish to npm
 
@@ -30,7 +34,7 @@ This name is currently available on npm.
 Option A, publish from your laptop:
 
 ```bash
-cd /Users/kathrynwu/conductor/workspaces/mcp-server/baton-rouge
+cd <path-to-this-repo>
 npm adduser
 npm publish --access public
 ```
@@ -51,7 +55,7 @@ claude mcp add openmart -- env OPENMART_API_KEY="THEIR_OPENMART_API_KEY" npx -y 
 
 1. Go to `https://dashboard.render.com/`.
 2. New + -> Web Service.
-3. Connect `kathrynwu/openmart-mcp-server`.
+3. Connect `OpenmartAI/openmart-mcp-server`.
 4. Render should detect `render.yaml`.
 5. Confirm:
    - Runtime: Docker
