@@ -102,12 +102,18 @@ test("e2e: a real MCP client lists and calls all three tools over stdio", { time
   try {
     await client.connect(transport);
 
-    // tools/list — the server must advertise exactly the three tools.
+    // tools/list — the server must advertise exactly the three tools,
+    // each with behaviour annotations (required by the Connectors Directory).
     const { tools } = await client.listTools();
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
       ["find_business", "find_decision_maker", "get_batch_results"],
     );
+    for (const tool of tools) {
+      assert.equal(typeof tool.annotations?.readOnlyHint, "boolean", `${tool.name} needs readOnlyHint`);
+    }
+    assert.equal(tools.find((t) => t.name === "find_business")?.annotations?.readOnlyHint, true);
+    assert.equal(tools.find((t) => t.name === "find_decision_maker")?.annotations?.readOnlyHint, false);
 
     // find_business — search companies.
     const search = parseToolResult(
