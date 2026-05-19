@@ -117,6 +117,7 @@ test("e2e: a real MCP client lists and calls all three tools over stdio", { time
       }),
     );
     assert.equal(search.total_count, 750);
+    assert.equal(search.has_more, false); // one row back against the default page size
     assert.equal((search.businesses as Array<Record<string, unknown>>)[0].business_name, "E2E Coffee");
 
     // find_decision_maker — find people, full submit/poll/fetch flow.

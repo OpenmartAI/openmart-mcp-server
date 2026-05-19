@@ -122,13 +122,17 @@ export function configFromApiKey(apiKey: string, env = process.env): OpenmartCon
   };
 }
 
+const DEFAULT_SEARCH_LIMIT = 50;
+
 export async function findBusinesses(
   input: BusinessSearchInput,
   config: OpenmartConfig,
 ): Promise<JsonRecord> {
   // estimate_total flips the response to {data, total_count} so callers can
-  // gauge how broad the query is before paging further.
-  const body = { ...input, estimate_total: true };
+  // gauge how broad the query is before paging further. Send an explicit
+  // limit so the has_more check below compares against a known page size.
+  const limit = input.limit ?? DEFAULT_SEARCH_LIMIT;
+  const body = { ...input, limit, estimate_total: true };
   const response = await openmartRequest<JsonRecord>(config, "POST", "/api/v1/search", body);
   const businesses = extractArray(response, [
     "data",
@@ -141,12 +145,16 @@ export async function findBusinesses(
     "data.items",
   ]);
   const total_count = extractTotalCount(response);
-  const next_cursor = lastCursor(businesses);
+  // A full page implies there is probably another; a short or empty page is
+  // the end of the result set. next_cursor is only meaningful while paging.
+  const has_more = businesses.length >= limit;
+  const next_cursor = has_more ? lastCursor(businesses) : null;
 
   if (businesses.length === 0) {
     return {
       businesses: [],
       total_count,
+      has_more,
       next_cursor,
       message: "No businesses found. Broaden the category/location or drop some filters.",
     };
@@ -155,6 +163,7 @@ export async function findBusinesses(
   return {
     businesses: businesses.map(normalizeBusiness),
     total_count,
+    has_more,
     next_cursor,
   };
 }
