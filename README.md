@@ -23,27 +23,53 @@ Two jobs — finding companies and finding people — across three tools.
   `find_decision_maker` run is still processing at its timeout it returns
   `pending_batch_ids`; pass them here to finish collecting the contacts.
 
-## Local Stdio Usage
+## Getting an API Key
 
-From this repo:
+Every user brings their own Openmart API key:
 
-```bash
-npm install
-npm run build
-export OPENMART_API_KEY="YOUR_OPENMART_API_KEY"
-claude mcp add openmart -- env OPENMART_API_KEY="$OPENMART_API_KEY" node "$(pwd)/dist/index.js"
-```
+1. Register at [app.openmart.com/register](https://app.openmart.com/register).
+2. Subscribe to a paid plan.
+3. Create a key on the [API management page](https://app.openmart.com/api-management).
 
-After publishing to npm:
+Provide that key to the server as the `OPENMART_API_KEY` environment variable
+(local stdio) or as an `X-API-Key` request header (remote HTTP).
+
+## Install
+
+Add the server to any MCP client with `npx` — no clone or build needed. For
+Claude Code:
 
 ```bash
 claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" npx -y openmart-mcp-server
 ```
 
-Then ask Claude Code:
+For other MCP clients (Claude Desktop, Cursor, VS Code, …), add the equivalent
+entry to their MCP config:
+
+```json
+{
+  "mcpServers": {
+    "openmart": {
+      "command": "npx",
+      "args": ["-y", "openmart-mcp-server"],
+      "env": { "OPENMART_API_KEY": "YOUR_OPENMART_API_KEY" }
+    }
+  }
+}
+```
+
+Then ask the assistant, for example:
 
 ```text
 Use openmart to find 3 hair salons in San Francisco with valid websites.
+```
+
+### From source (development)
+
+```bash
+npm install
+npm run build
+claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" node "$(pwd)/dist/index.js"
 ```
 
 ## Claude Code Plugin
