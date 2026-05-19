@@ -111,24 +111,40 @@ const BusinessSearchSchema = z.object({
     .describe("Pagination cursor — pass the next_cursor returned by the previous call to get the next page."),
 });
 
-const CompanySchema = z.object({
-  domain: z.string().optional(),
-  root_domain: z.string().optional(),
-  website_url: z.string().optional(),
-  company_name: z.string().optional(),
-  business_name: z.string().optional(),
-  store_name: z.string().optional(),
-  openmart_id: z.string().optional(),
-  tracking_id: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  country: z.string().optional(),
-}).passthrough();
+const CompanySchema = z
+  .object({
+    domain: z.string().optional().describe("Company website domain, e.g. 'bluebottlecoffee.com'."),
+    root_domain: z.string().optional().describe("Root domain — used when `domain` is absent."),
+    website_url: z
+      .string()
+      .optional()
+      .describe("Website URL — the domain is parsed from it when `domain`/`root_domain` are absent."),
+    company_name: z.string().optional().describe("Company display name — improves match accuracy."),
+    business_name: z.string().optional().describe("Alias for company_name (e.g. from a find_business row)."),
+    store_name: z.string().optional().describe("Alias for company_name (e.g. from a find_business row)."),
+    openmart_id: z.string().optional().describe("Openmart business id; echoed back as tracking_id on each contact."),
+    tracking_id: z.string().optional().describe("Your own correlation id; echoed back on each contact."),
+    city: z.string().optional().describe("City — helps disambiguate the company."),
+    state: z.string().optional().describe("State — helps disambiguate the company."),
+    country: z.string().optional().describe("Country — helps disambiguate the company."),
+  })
+  .passthrough();
 
 const DecisionMakerSchema = z.object({
-  companies: z.array(CompanySchema).optional(),
-  businesses: z.array(CompanySchema).optional(),
-  title: z.string().default("Owner").describe("Target role, for example Owner, Founder, Manager."),
+  companies: z
+    .array(CompanySchema)
+    .optional()
+    .describe("Target companies. Each needs a domain (or a website_url to parse one from)."),
+  businesses: z
+    .array(CompanySchema)
+    .optional()
+    .describe("Alias for `companies` — accepts find_business result rows directly."),
+  title: z
+    .string()
+    .default("Owner")
+    .describe(
+      "Job title to search for, e.g. 'Owner', 'CEO', 'Founder', 'CTO', 'Head of Marketing'. Defaults to 'Owner'.",
+    ),
   max_k: z
     .number()
     .int()
@@ -136,9 +152,26 @@ const DecisionMakerSchema = z.object({
     .max(8)
     .default(3)
     .describe("Max contacts to return per company (1-8)."),
-  info_access: z.array(z.enum(["EMAIL", "PHONE"])).default(["EMAIL", "PHONE"]),
-  timeout_seconds: z.number().int().positive().max(600).default(120),
-  poll_interval_ms: z.number().int().positive().max(30_000).default(2_000),
+  info_access: z
+    .array(z.enum(["EMAIL", "PHONE"]))
+    .default(["EMAIL", "PHONE"])
+    .describe(
+      "Contact fields to retrieve: ['EMAIL'] for work email only, ['EMAIL','PHONE'] to also pull phone numbers (phone costs more).",
+    ),
+  timeout_seconds: z
+    .number()
+    .int()
+    .positive()
+    .max(600)
+    .default(120)
+    .describe("How long to wait for async enrichment before returning partial results (default 120s)."),
+  poll_interval_ms: z
+    .number()
+    .int()
+    .positive()
+    .max(30_000)
+    .default(2_000)
+    .describe("How often to poll batch status, in milliseconds."),
 });
 
 export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): McpServer {
@@ -151,8 +184,26 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
     "find_business",
     {
       title: "Find Business",
-      description:
-        "Search Openmart local business records by query, location, and filters. Returns structured business rows.",
+      description: [
+        "Search Openmart's directory of local / SMB businesses — restaurants, salons, retail,",
+        "fitness, services, healthcare, and similar physical-location merchants — to build prospect lists.",
+        "",
+        "Filter by geography, category, Google rating, review count, ownership type, price tier,",
+        "location count (chains vs. single-location), website presence, and opening/refresh dates.",
+        "",
+        "Search target: pass `tags`, `store_name`, or `query`. When more than one is given, `tags`",
+        "takes precedence over `store_name`, which takes precedence over `query`. `query` should be a",
+        "single short category term (e.g. 'nail salon', 'auto repair') — not a sentence, and with no",
+        "location in it (location goes in `location`). Pass at least one `location` for local results.",
+        "",
+        "Returns each business with name, address, phone, website, root domain, Google rating and",
+        "review count, tags/categories, location count, ownership type, and price tier. Also returns",
+        "`total_count` (how many businesses match overall) and `next_cursor` — to page further, call",
+        "again with `cursor` set to that value.",
+        "",
+        "To get decision-maker contacts (email/phone) for the businesses found, follow up with",
+        "`find_decision_maker` using their domains.",
+      ].join("\n"),
       inputSchema: BusinessSearchSchema,
     },
     async (input, extra) => toToolResult(await findBusinesses(input, resolveConfig(extra))),
@@ -162,8 +213,28 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
     "find_decision_maker",
     {
       title: "Find Decision Maker",
-      description:
-        "Find owner, founder, manager, or other decision-maker contact info for companies or businesses. Handles Openmart async batch polling internally when possible.",
+      description: [
+        "Find decision-maker contacts at one or more companies by job title. Give it a list of",
+        "companies (domains, or rows returned by `find_business`); get back people with name, title,",
+        "email (plus a verified flag), phone, and LinkedIn URL.",
+        "",
+        "Works for both local SMBs and B2B companies — tune it to your target audience with `title`",
+        "(default 'Owner'; e.g. 'CTO', 'Head of Marketing', 'General Manager').",
+        "",
+        "Pass every target company in a SINGLE call. The tool batches them and transparently splits",
+        "lists longer than 100 into multiple batches — do not loop one company per call.",
+        "",
+        "`info_access` controls which contact fields are retrieved: ['EMAIL'] for work email only,",
+        "['EMAIL','PHONE'] to also pull phone numbers (phone is more expensive). `max_k` sets how many",
+        "contacts to return per company (1-8).",
+        "",
+        "Companies without a resolvable domain are skipped and listed in `skipped_rows` — resolve them",
+        "with `find_business` first. Enrichment runs asynchronously and is polled internally; if it is",
+        "still running at the timeout, the response has status 'processing' with batch ids to retry.",
+        "",
+        "This discovers NEW contacts at a company by title; it is not for re-enriching a specific",
+        "person you already know.",
+      ].join("\n"),
       inputSchema: DecisionMakerSchema,
     },
     async (input, extra) => toToolResult(await findDecisionMakers(input, resolveConfig(extra))),
