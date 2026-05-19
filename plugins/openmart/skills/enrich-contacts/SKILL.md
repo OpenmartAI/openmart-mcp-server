@@ -16,6 +16,6 @@ Call `mcp__openmart__find_decision_maker` with:
 After results return:
 - Present contacts in a compact table with business or tracking ID, full name, title, email, verified status if present, phones, LinkedIn URL, and task ID.
 - Include `skipped_rows` with reasons when businesses cannot be enriched.
-- If status is `processing`, return the `batch_ids` / `pending_batch_ids` and status instead of retrying indefinitely.
+- If status is `processing`, the contacts are only partial — call `mcp__openmart__get_batch_results` with the `pending_batch_ids` to collect the rest, and repeat until status is `completed`. Do not present a `processing` result as the final answer.
 
 Do not invent missing emails or phone numbers.

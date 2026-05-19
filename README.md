@@ -9,7 +9,7 @@ It supports two transports:
 
 ## Tools
 
-Two tools, for two jobs — finding companies and finding people.
+Two jobs — finding companies and finding people — across three tools.
 
 - `find_business` — find companies. Wraps `POST /api/v1/search`. Every filter
   (rating, reviews, location count, ownership type, price tier, keywords,
@@ -19,6 +19,9 @@ Two tools, for two jobs — finding companies and finding people.
   submits one or more batches (company lists longer than 100 are split
   automatically), polls each batch, then fetches the completed task results.
   Transient HTTP failures are retried with exponential back-off.
+- `get_batch_results` — collect the results of an async batch. When a large
+  `find_decision_maker` run is still processing at its timeout it returns
+  `pending_batch_ids`; pass them here to finish collecting the contacts.
 
 ## Local Stdio Usage
 
@@ -213,6 +216,16 @@ Search target: pass `query`, `tags`, or `store_name` — `tags` wins over
 ```
 
 Rows without a domain are skipped and returned in `skipped_rows` with `reason: "missing_domain"`.
+
+`get_batch_results` resumes a `find_decision_maker` run that returned status `processing`:
+
+```json
+{
+  "batch_ids": ["ccd0e75a-1d3f-449c-afa4-a687de36c994"]
+}
+```
+
+It returns the contacts collected so far; if some batches are still running it returns status `processing` again with the remaining `pending_batch_ids` — wait a few seconds and call it again with those.
 
 ## Verify
 

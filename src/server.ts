@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   findBusinesses,
   findDecisionMakers,
+  getBatchResults,
   type OpenmartConfig,
 } from "./openmart.js";
 
@@ -174,6 +175,29 @@ const DecisionMakerSchema = z.object({
     .describe("How often to poll batch status, in milliseconds."),
 });
 
+const BatchResultsSchema = z.object({
+  batch_ids: z
+    .array(z.string())
+    .min(1)
+    .describe(
+      "Batch ids to collect — use the `pending_batch_ids` from a find_decision_maker response whose status was 'processing'.",
+    ),
+  timeout_seconds: z
+    .number()
+    .int()
+    .positive()
+    .max(600)
+    .default(120)
+    .describe("How long to wait for the batches to finish before returning partial results (default 120s)."),
+  poll_interval_ms: z
+    .number()
+    .int()
+    .positive()
+    .max(30_000)
+    .default(2_000)
+    .describe("How often to poll batch status, in milliseconds."),
+});
+
 export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): McpServer {
   const server = new McpServer({
     name: "openmart-mcp-server",
@@ -230,7 +254,9 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
         "",
         "Companies without a resolvable domain are skipped and listed in `skipped_rows` — resolve them",
         "with `find_business` first. Enrichment runs asynchronously and is polled internally; if it is",
-        "still running at the timeout, the response has status 'processing' with batch ids to retry.",
+        "still running at the timeout, the response has status 'processing' plus `pending_batch_ids`.",
+        "A 'processing' result is NOT final — the contacts in it are partial. Call `get_batch_results`",
+        "with those `pending_batch_ids` to collect the rest before concluding.",
         "",
         "This discovers NEW contacts at a company by title; it is not for re-enriching a specific",
         "person you already know.",
@@ -238,6 +264,28 @@ export function createOpenmartMcpServer(resolveConfig: OpenmartConfigResolver): 
       inputSchema: DecisionMakerSchema,
     },
     async (input, extra) => toToolResult(await findDecisionMakers(input, resolveConfig(extra))),
+  );
+
+  server.registerTool(
+    "get_batch_results",
+    {
+      title: "Get Batch Results",
+      description: [
+        "Collect the results of an asynchronous Openmart batch job — use this to finish gathering",
+        "decision-maker contacts when `find_decision_maker` returned status 'processing'.",
+        "",
+        "`find_decision_maker` polls internally, but very large runs can still be in progress when it",
+        "returns; in that case it hands back `pending_batch_ids`. Pass those ids here — this tool polls",
+        "the batches and returns the contacts (name, title, email + verified flag, phone, LinkedIn URL)",
+        "from every batch that has finished.",
+        "",
+        "If some batches are still running, the response is again status 'processing' with the",
+        "remaining `pending_batch_ids` — wait a few seconds and call again with those. Keep going until",
+        "status is 'completed'; do not treat a 'processing' result as the full answer.",
+      ].join("\n"),
+      inputSchema: BatchResultsSchema,
+    },
+    async (input, extra) => toToolResult(await getBatchResults(input, resolveConfig(extra))),
   );
 
   return server;

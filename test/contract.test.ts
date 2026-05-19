@@ -6,6 +6,7 @@ import {
   configFromApiKey,
   findBusinesses,
   findDecisionMakers,
+  getBatchResults,
 } from "../src/openmart.js";
 
 // Contract tests: stub global fetch with canned responses shaped like the
@@ -217,4 +218,62 @@ test("a 401 maps to an invalid-key error", async () => {
     withFetch(fake, () => findBusinesses({ query: "coffee" }, cfg)),
     /Invalid Openmart API key/,
   );
+});
+
+test("get_batch_results collects contacts from ready batches", async () => {
+  const { fake } = stubFetch((url) => {
+    if (url.includes("/status")) {
+      return json({ processing: 0, completed: 1, errored: 0, total: 1, batch_ready: true });
+    }
+    if (url.includes("/task_ids")) {
+      return json(["t9"]);
+    }
+    if (url.includes("/task/t9")) {
+      return json({
+        data: [
+          {
+            first_name: "Dana",
+            last_name: "Lee",
+            title: "Owner",
+            email: { email: "dana@shop.com", verified: false },
+            phones: [{ phone_number: "+15551234567", line_type: "MOBILE", valid: true }],
+          },
+        ],
+        status: "COMPLETED",
+        task_id: "t9",
+        tracking_id: "biz_x",
+      });
+    }
+    return json({}, 404);
+  });
+
+  const result = await withFetch(fake, () =>
+    getBatchResults({ batch_ids: ["b9"], poll_interval_ms: 1, timeout_seconds: 5 }, cfg),
+  );
+
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.batch_ids, ["b9"]);
+  const contacts = result.contacts as Array<Record<string, unknown>>;
+  assert.equal(contacts.length, 1);
+  assert.equal(contacts[0].first_name, "Dana");
+  assert.equal(contacts[0].tracking_id, "biz_x");
+});
+
+test("get_batch_results returns 'processing' while a batch is unfinished", async () => {
+  const { fake } = stubFetch(() =>
+    json({ processing: 1, completed: 0, errored: 0, total: 1, batch_ready: false }),
+  );
+  const result = await withFetch(fake, () =>
+    getBatchResults({ batch_ids: ["b1", "b2"], poll_interval_ms: 1, timeout_seconds: 0 }, cfg),
+  );
+
+  assert.equal(result.status, "processing");
+  assert.deepEqual(result.pending_batch_ids, ["b1", "b2"]);
+  assert.deepEqual(result.contacts, []);
+});
+
+test("get_batch_results handles an empty batch_ids list", async () => {
+  const result = await getBatchResults({ batch_ids: [] }, cfg);
+  assert.equal(result.status, "completed");
+  assert.deepEqual(result.contacts, []);
 });

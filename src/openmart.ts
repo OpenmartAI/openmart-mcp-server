@@ -74,6 +74,12 @@ export type DecisionMakerInput = {
   poll_interval_ms?: number;
 };
 
+export type BatchResultsInput = {
+  batch_ids: string[];
+  timeout_seconds?: number;
+  poll_interval_ms?: number;
+};
+
 export class OpenmartApiError extends Error {
   constructor(
     message: string,
@@ -194,9 +200,44 @@ export async function findDecisionMakers(
     batchIds.push(batchId);
   }
 
-  // Poll every batch until ready or the deadline passes. A failed status
-  // check is treated as "not ready yet" so a single transient blip cannot
-  // kill the whole job.
+  const { contacts, readyBatchIds, pendingBatchIds } = await collectBatches(
+    batchIds,
+    config,
+    timeoutMs,
+    pollIntervalMs,
+  );
+
+  if (pendingBatchIds.length > 0) {
+    return {
+      status: "processing",
+      batch_ids: batchIds,
+      pending_batch_ids: pendingBatchIds,
+      contacts,
+      skipped_rows,
+      message:
+        `Decision-maker enrichment finished ${readyBatchIds.length} of ${batchIds.length} ` +
+        `batch(es); ${pendingBatchIds.length} still running. Call get_batch_results with ` +
+        `pending_batch_ids to collect the rest.`,
+    };
+  }
+
+  return {
+    status: "completed",
+    batch_ids: batchIds,
+    contacts,
+    skipped_rows,
+  };
+}
+
+// Poll a set of batches until each is ready (or the deadline passes), then
+// fetch the task results of every batch that finished. A failed status check
+// counts as "not ready yet" so one transient blip cannot abort the job.
+async function collectBatches(
+  batchIds: string[],
+  config: OpenmartConfig,
+  timeoutMs: number,
+  pollIntervalMs: number,
+): Promise<{ contacts: JsonRecord[]; readyBatchIds: string[]; pendingBatchIds: string[] }> {
   const deadline = Date.now() + timeoutMs;
   const pending = new Set(batchIds);
   while (pending.size > 0 && Date.now() < deadline) {
@@ -211,7 +252,6 @@ export async function findDecisionMakers(
     }
   }
 
-  // Collect contacts from every batch that finished.
   const readyBatchIds = batchIds.filter((id) => !pending.has(id));
   const contactGroups = await Promise.all(
     readyBatchIds.map(async (batchId) => {
@@ -219,18 +259,46 @@ export async function findDecisionMakers(
       return fetchTaskContacts(config, taskIds);
     }),
   );
-  const contacts = contactGroups.flat();
 
-  if (pending.size > 0) {
+  return { contacts: contactGroups.flat(), readyBatchIds, pendingBatchIds: [...pending] };
+}
+
+// Resume an async batch started by find_decision_maker. The Openmart batch
+// status / task endpoints are generic, so this works for any batch id.
+export async function getBatchResults(
+  input: BatchResultsInput,
+  config: OpenmartConfig,
+): Promise<JsonRecord> {
+  const batchIds = (input.batch_ids ?? []).filter(
+    (id) => typeof id === "string" && id.length > 0,
+  );
+  if (batchIds.length === 0) {
+    return {
+      status: "completed",
+      contacts: [],
+      message: "No batch_ids provided.",
+    };
+  }
+
+  const timeoutMs = (input.timeout_seconds ?? config.timeoutMs / 1000) * 1000;
+  const pollIntervalMs = input.poll_interval_ms ?? config.pollIntervalMs;
+  const { contacts, readyBatchIds, pendingBatchIds } = await collectBatches(
+    batchIds,
+    config,
+    timeoutMs,
+    pollIntervalMs,
+  );
+
+  if (pendingBatchIds.length > 0) {
     return {
       status: "processing",
       batch_ids: batchIds,
-      pending_batch_ids: [...pending],
+      pending_batch_ids: pendingBatchIds,
       contacts,
-      skipped_rows,
       message:
-        `Decision-maker enrichment finished ${readyBatchIds.length} of ${batchIds.length} ` +
-        `batch(es); ${pending.size} still running. Retry later to collect the rest.`,
+        `${readyBatchIds.length} of ${batchIds.length} batch(es) ready; ` +
+        `${pendingBatchIds.length} still running. Wait a few seconds, then call ` +
+        `get_batch_results again with pending_batch_ids.`,
     };
   }
 
@@ -238,7 +306,6 @@ export async function findDecisionMakers(
     status: "completed",
     batch_ids: batchIds,
     contacts,
-    skipped_rows,
   };
 }
 
