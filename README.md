@@ -191,8 +191,9 @@ Two GitHub Actions workflows (`.github/workflows/`):
 - `release.yml` — on a `v*` tag, builds the `.mcpb` bundle, creates the GitHub
   Release with it attached, and publishes the package to npm.
 
-`release.yml` needs an `NPM_TOKEN` repository secret (an npm automation token)
-for the publish step.
+`release.yml` publishes to npm via [trusted publishing](https://docs.npmjs.com/trusted-publishers/)
+(OIDC) — no token. The package's trusted publisher must be configured on
+npmjs.com to allow this repository and the `release.yml` workflow.
 
 ## Shared Project Config
 

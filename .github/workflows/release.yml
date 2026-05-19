@@ -6,8 +6,9 @@ name: Release
 # This builds the .mcpb desktop-extension bundle, creates the GitHub Release
 # with the bundle attached, and publishes the package to npm.
 #
-# Requires an NPM_TOKEN repository secret (an npm automation token) for the
-# publish step.
+# npm publishing uses trusted publishing (OIDC) — no token. The package's
+# trusted publisher must be configured on npmjs.com to allow this repository
+# and this workflow file (release.yml).
 on:
   push:
     tags: ["v*"]
@@ -17,14 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release and upload assets
-      id-token: write # npm publish provenance
+      id-token: write # OIDC token for npm trusted publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
           cache: npm
+      # npm trusted publishing (OIDC) requires npm >= 11.5.1.
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
@@ -40,7 +42,7 @@ jobs:
             --title "$GITHUB_REF_NAME" \
             --generate-notes \
             "openmart-mcp-server-${version}.mcpb"
+      # Publishes via OIDC trusted publishing — no NODE_AUTH_TOKEN. npm also
+      # records provenance automatically when published this way.
       - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
