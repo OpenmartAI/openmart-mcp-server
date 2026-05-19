@@ -1,0 +1,11 @@
+{
+  "name": "openmart",
+  "description": "Find local businesses and enrich decision-maker contacts with Openmart.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Openmart"
+  },
+  "homepage": "https://github.com/kathrynwu/openmart-mcp-server",
+  "repository": "https://github.com/kathrynwu/openmart-mcp-server",
+  "license": "MIT"
+}

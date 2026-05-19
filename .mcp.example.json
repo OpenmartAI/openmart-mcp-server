@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "openmart": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "openmart-mcp-server"],
+      "env": {
+        "OPENMART_API_KEY": "${OPENMART_API_KEY}"
+      }
+    }
+  }
+}

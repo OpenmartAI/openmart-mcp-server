@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "openmart": {
+      "type": "http",
+      "url": "${OPENMART_MCP_URL:-https://mcp.openmart.ai/mcp}",
+      "headers": {
+        "X-API-Key": "${OPENMART_API_KEY}"
+      }
+    }
+  }
+}

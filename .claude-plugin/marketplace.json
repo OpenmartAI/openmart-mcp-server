@@ -1,0 +1,23 @@
+{
+  "name": "openmart-plugins",
+  "owner": {
+    "name": "Openmart"
+  },
+  "description": "Claude Code plugins for Openmart lead discovery and decision-maker enrichment.",
+  "plugins": [
+    {
+      "name": "openmart",
+      "source": "./plugins/openmart",
+      "description": "Find local businesses and enrich owner, founder, or manager contacts with Openmart.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Openmart"
+      },
+      "homepage": "https://github.com/kathrynwu/openmart-mcp-server",
+      "repository": "https://github.com/kathrynwu/openmart-mcp-server",
+      "license": "MIT",
+      "category": "External integrations",
+      "tags": ["mcp", "sales", "lead-generation", "openmart"]
+    }
+  ]
+}
