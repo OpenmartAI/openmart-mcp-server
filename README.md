@@ -185,10 +185,16 @@ The package exposes two binaries:
 
 ## CI Workflows
 
-The CI, npm-publish, and Render-deploy workflow files are parked under
-`docs/github-workflows/`. To activate them as real GitHub Actions, move them
-into `.github/workflows/` and push from a credential that holds the GitHub
-`workflow` OAuth scope (`gh auth refresh -s workflow`).
+Two workflow files live under `docs/github-workflows/`:
+
+- `ci.yml` — runs tests, typecheck, and build on every push and pull request.
+- `release.yml` — on a `v*` tag, builds the `.mcpb` bundle, creates the GitHub
+  Release with it attached, and publishes the package to npm.
+
+To activate them, move both into `.github/workflows/` and push from a
+credential that holds the GitHub `workflow` OAuth scope
+(`gh auth refresh -s workflow`). `release.yml` also needs an `NPM_TOKEN`
+repository secret (an npm automation token) for the publish step.
 
 ## Shared Project Config
 
@@ -309,3 +315,10 @@ claude mcp add openmart -- env OPENMART_API_KEY="YOUR_OPENMART_API_KEY" node "$(
 ```
 
 Then ask Claude, for example: `find 3 coffee shops in San Francisco with valid websites and get their owner emails`.
+
+## Privacy
+
+This server holds no data of its own. It forwards the search and enrichment
+parameters you pass to the Openmart API, authenticated with your own API key,
+and returns the response. Data handling is governed by the
+[Openmart privacy policy](https://www.openmart.com/privacy-policy).
