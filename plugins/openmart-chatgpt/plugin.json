@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "openmart",
+  "version": "0.2.0",
+  "description": "Find small businesses, identify decision makers, enrich companies and export verified lead data with Openmart.",
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/onboard/SKILL.md",
+      "interface": {
+        "displayName": "Openmart",
+        "shortDescription": "Find businesses and build useful prospect lists",
+        "longDescription": "Search business locations or companies, select prospects, find decision-maker emails, track enrichment jobs, and export saved results. Connect an existing Openmart account. Searches and enrichment may use Openmart credits.",
+        "developerName": "Openmart",
+        "category": "Productivity",
+        "capabilities": ["Read", "Write"],
+        "websiteURL": "https://www.openmart.com",
+        "privacyPolicyURL": "https://www.openmart.com/privacy-policy",
+        "brandColor": "#0A1C50",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png",
+        "defaultPrompt": ["Find 10 independent coffee shops in Austin.", "Find one owner email for the businesses I selected.", "Export my saved Openmart results as CSV."]
+      }
+    }
+  }
+}

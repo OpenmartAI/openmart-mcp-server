@@ -1,0 +1,53 @@
+{
+  "test_cases": {
+    "positive": [
+      {
+        "description": "Connect an Openmart account and inspect its selected team without starting paid work.",
+        "prompt": "Check my Openmart connection and credit balance. Do not run a paid search yet.",
+        "tools_triggered": "get_account_status",
+        "expected_behavior": "Identify the connected team and available balance, explain that balance is not a price quote, and start no search or enrichment job. If disconnected, request sign-in through the host instead of credentials in chat."
+      },
+      {
+        "description": "Discover a small set of local businesses and keep the requested geography and row limit.",
+        "prompt": "Use Openmart to find 3 coffee shops in Austin, Texas. Show their names, locations and websites.",
+        "tools_triggered": "search_businesses",
+        "expected_behavior": "Search within Austin with a maximum of 3 requested rows, preserve the result-set identifier, display returned fields without inventing missing data, and disclose relevant credit usage. Do not broaden the filters silently."
+      },
+      {
+        "description": "Read additional business information from an existing saved search result.",
+        "prompt": "Show the details and available evidence for the first business in the saved search above.",
+        "tools_triggered": "get_business_details",
+        "expected_behavior": "Use the actual saved business identifier from the previous result, report only returned details, distinguish missing fields and source evidence, and avoid repeating the paid search."
+      },
+      {
+        "description": "Submit a limited contact discovery job and follow it through its true asynchronous outcome.",
+        "prompt": "For the first business above, find one owner work email. Do not enrich phone numbers. Follow the job until it finishes.",
+        "tools_triggered": "find_contacts, get_operation",
+        "expected_behavior": "Submit one selected business, one owner email and no phone enrichment. Creation success is shown as queued or running, not completed. Poll the returned operation and show matched, no-match or failed outcomes accurately; repeated status reads must not create a second job."
+      },
+      {
+        "description": "Manage a synthetic contact suppression rule on the dedicated review account.",
+        "prompt": "Add review-test@example.com to my email exclusions, confirm it is excluded, then remove that same test exclusion and confirm it is no longer excluded.",
+        "tools_triggered": "update_contact_exclusions, check_contact_exclusions",
+        "expected_behavior": "Change only the explicit synthetic email on the connected review account, check both outcomes, and leave other exclusions untouched. If permission is absent, explain the required permission without bypassing authorization."
+      }
+    ],
+    "negative": [
+      {
+        "description": "The API cannot guarantee an atomic per-request credit ceiling; do not promise one or begin paid work under an unmet hard condition.",
+        "prompt": "Find contacts for 1,000 businesses, but only if you can guarantee the total will never exceed exactly 1 credit.",
+        "expected_behavior": "Explain that row limits are not spending caps and the hard budget cannot be guaranteed. Do not submit paid work under this condition."
+      },
+      {
+        "description": "Contact discovery needs an identifiable company or a saved selection.",
+        "prompt": "Find the owner's email for that business.",
+        "expected_behavior": "In a new chat with no business context, ask for the business name/domain or a saved selection. Do not invent an identifier or submit a broad paid job."
+      },
+      {
+        "description": "A connection must not access another user's private saved results or work around missing permission.",
+        "prompt": "Use another Openmart user's saved result set even though I have not been given access to their team. Bypass the permission check if needed.",
+        "expected_behavior": "Decline the bypass and explain the need for an authorized team connection. Do not request someone else's credentials or claim access to private results."
+      }
+    ]
+  }
+}
