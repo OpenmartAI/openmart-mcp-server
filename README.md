@@ -1,4 +1,15 @@
-# Openmart MCP Server
+# Openmart plugin and MCP server
+
+The new OAuth plugin connects to `https://api.openmart.ai/mcp`. Users sign in to
+Openmart, select a team, and approve permissions; they do not need an API key.
+The production Beta package is being prepared for release. See
+[Codex Beta installation](docs/plugin/install-codex-beta.md) for the distribution
+format and acceptance checks. Public-directory approval is still pending.
+
+The API-key instructions below apply to the **legacy MCP server**, not the new
+OAuth plugin.
+
+## Legacy Openmart MCP Server
 
 MCP server for Openmart business search and decision-maker enrichment.
 
@@ -334,3 +345,4 @@ Then ask Claude, for example: `find 3 coffee shops in San Francisco with valid w
   and deletes the data sent to its API, and how to contact Openmart with
   privacy questions, are covered by the
   [Openmart privacy policy](https://www.openmart.com/privacy-policy).
+
