@@ -345,4 +345,3 @@ Then ask Claude, for example: `find 3 coffee shops in San Francisco with valid w
   and deletes the data sent to its API, and how to contact Openmart with
   privacy questions, are covered by the
   [Openmart privacy policy](https://www.openmart.com/privacy-policy).
-
